@@ -19,12 +19,23 @@
         rustPkgs = pkgs.rustBuilder.makePackageSet {
           rustToolchain = pkgs.rust-bin.stable."1.72.1".default;
           packageFun = import ./Cargo.nix;
+          packageOverrides = pkgs: pkgs.rustBuilder.overrides.all ++ [
+            (pkgs.rustBuilder.rustLib.makeOverride {
+              name = "fuser";
+              overrideAttrs = drv: {
+                propagatedBuildInputs = drv.propagatedBuildInputs ++ [
+                  pkgs.fuse3
+                ];
+              };
+            })
+          ];
         };
       in
       {
         _module.args.pkgs = import nixpkgs {
           inherit system;
           overlays = [
+            devshell.overlays.default
             cargo2nix.overlays.default
             rust-overlay.overlays.default
           ];
@@ -38,6 +49,14 @@
           default = quicfs;
         };
         devshells.default = {
+          imports = [ "${pkgs.devshell.extraModulesDir}/language/c.nix" ];
+          language.c = with pkgs; rec {
+            compiler = gcc;
+            libraries = [
+              fuse3
+            ];
+            includes = libraries;
+          };
           packagesFrom = [
             (rustPkgs.workspaceShell { })
           ];
