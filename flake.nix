@@ -16,6 +16,11 @@
       systems = [ "x86_64-linux" ];
       perSystem = { inputs', system, pkgs, config, ... }:
       let
+        binlessFuse = pkgs.fuse3.overrideAttrs (old: {
+          postFixup = old.postFixup + ''
+            rm -r "$out"/{,s}bin
+          '';
+        });
         rustPkgs = pkgs.rustBuilder.makePackageSet {
           rustToolchain = pkgs.rust-bin.stable."1.72.1".default;
           packageFun = import ./Cargo.nix;
@@ -24,7 +29,7 @@
               name = "fuser";
               overrideAttrs = drv: {
                 propagatedBuildInputs = drv.propagatedBuildInputs ++ [
-                  pkgs.fuse3
+                  binlessFuse
                 ];
               };
             })
@@ -53,7 +58,7 @@
           language.c = with pkgs; rec {
             compiler = gcc;
             libraries = [
-              fuse3
+              binlessFuse
             ];
             includes = libraries;
           };
