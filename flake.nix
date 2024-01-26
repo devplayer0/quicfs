@@ -22,7 +22,7 @@
           '';
         });
         rustPkgs = pkgs.rustBuilder.makePackageSet {
-          rustToolchain = pkgs.rust-bin.stable."1.72.1".default;
+          rustToolchain = pkgs.rust-bin.stable."1.75.0".default;
           packageFun = import ./Cargo.nix;
           packageOverrides = pkgs: pkgs.rustBuilder.overrides.all ++ [
             (pkgs.rustBuilder.rustLib.makeOverride {
@@ -67,6 +67,7 @@
           ];
           packages = [
             inputs'.cargo2nix.packages.default
+            pkgs.cargo-outdated
           ];
         };
       };

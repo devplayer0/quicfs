@@ -9,8 +9,8 @@ authors = ["Jack O'Sullivan <j@ckos.ie>"]
 
 [dependencies]
 clap = { version = "4.4.4", features = ["derive"] }
-env_logger = "0.10.0"
-fuser = { version = "0.13.0", optional = true }
+env_logger = "0.11.0"
+fuser = { version = "0.14.0", optional = true }
 libc = { version = "0.2.148", optional = true }
 log = "0.4.20"
 prost = "0.12.1"
