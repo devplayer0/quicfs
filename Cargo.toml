@@ -8,14 +8,15 @@ authors = ["Jack O'Sullivan <j@ckos.ie>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.4.4", features = ["derive"] }
-env_logger = "0.11.0"
+clap = { version = "4.5.4", features = ["derive"] }
+env_logger = "0.11.3"
 fuser = { version = "0.14.0", optional = true }
-libc = { version = "0.2.148", optional = true }
+libc = { version = "0.2.152", optional = true }
 log = "0.4.20"
-prost = "0.12.1"
-prost-build = "0.12.1"
-quinn = "0.10.2"
+prost = "0.12.3"
+prost-build = "0.12.3"
+quinn = "0.11.0"
+rcgen = "0.13.1"
 signal-hook = "0.3.17"
 tokio = { version = "1", features = ["full"] }
 

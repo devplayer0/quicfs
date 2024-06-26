@@ -22,7 +22,7 @@
           '';
         });
         rustPkgs = pkgs.rustBuilder.makePackageSet {
-          rustToolchain = pkgs.rust-bin.stable."1.75.0".default;
+          rustToolchain = pkgs.rust-bin.stable."1.79.0".default;
           packageFun = import ./Cargo.nix;
           packageOverrides = pkgs: pkgs.rustBuilder.overrides.all ++ [
             (pkgs.rustBuilder.rustLib.makeOverride {
