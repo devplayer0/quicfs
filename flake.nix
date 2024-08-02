@@ -2,46 +2,60 @@
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
     rust-overlay.url = "github:oxalica/rust-overlay";
-    cargo2nix.url = "github:cargo2nix/cargo2nix";
-    devshell.url = "github:numtide/devshell";
-    devshell.inputs.nixpkgs.follows = "nixpkgs";
+    crane.url = "github:ipetkov/crane";
+    crane.inputs.nixpkgs.follows = "nixpkgs";
+    devenv.url = "github:cachix/devenv";
+    devenv.inputs.nixpkgs.follows = "nixpkgs";
+
+    rootdir = {
+      url = "file+file:///dev/null";
+      flake = false;
+    };
   };
 
-  outputs = inputs@{ nixpkgs, flake-parts, rust-overlay, cargo2nix, devshell, ... }:
+  outputs =
+    inputs@{
+      nixpkgs, flake-parts, rust-overlay, crane,
+      devenv,
+      rootdir,
+      ...
+    }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         inputs.flake-parts.flakeModules.easyOverlay
-        devshell.flakeModule
+        devenv.flakeModule
       ];
       systems = [ "x86_64-linux" ];
-      perSystem = { inputs', system, pkgs, config, ... }:
+
+      debug = true;
+      perSystem = { inputs', system, lib, pkgs, config, ... }:
       let
-        binlessFuse = pkgs.fuse3.overrideAttrs (old: {
-          postFixup = old.postFixup + ''
-            rm -r "$out"/{,s}bin
-          '';
-        });
-        rustPkgs = pkgs.rustBuilder.makePackageSet {
-          rustToolchain = pkgs.rust-bin.stable."1.80.0".default;
-          packageFun = import ./Cargo.nix;
-          packageOverrides = pkgs: pkgs.rustBuilder.overrides.all ++ [
-            (pkgs.rustBuilder.rustLib.makeOverride {
-              name = "fuser";
-              overrideAttrs = drv: {
-                propagatedBuildInputs = drv.propagatedBuildInputs ++ [
-                  binlessFuse
-                ];
-              };
-            })
+        inherit (lib) genAttrs;
+
+        rustToolchain' = ps: ps.rust-bin.stable."1.80.0".default;
+        rustToolchain = rustToolchain' pkgs;
+        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain';
+
+        src = craneLib.cleanCargoSource ./.;
+        commonArgs = {
+          inherit src;
+          strictDeps = true;
+
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+          ];
+          buildInputs = with pkgs; [
+            fuse3
           ];
         };
+        # Build *just* the cargo dependencies, so we can reuse
+        # all of that work when running in CI
+        cargoArtifacts = craneLib.buildDepsOnly commonArgs;
       in
       {
         _module.args.pkgs = import nixpkgs {
           inherit system;
           overlays = [
-            devshell.overlays.default
-            cargo2nix.overlays.default
             rust-overlay.overlays.default
           ];
         };
@@ -50,25 +64,39 @@
           inherit (config.packages) quicfs;
         };
         packages = rec {
-          quicfs = (rustPkgs.workspace.quicfs { }).bin;
+          quicfs = craneLib.buildPackage (commonArgs // {
+            inherit cargoArtifacts;
+          });
           default = quicfs;
         };
-        devshells.default = {
-          imports = [ "${pkgs.devshell.extraModulesDir}/language/c.nix" ];
-          language.c = with pkgs; rec {
-            compiler = gcc;
-            libraries = [
-              binlessFuse
-            ];
-            includes = libraries;
+        devenv.shells.default = devenvArgs:
+        let
+          cfg = devenvArgs.config;
+
+          rootdirOpt =
+            let
+              rootFileContent = builtins.readFile rootdir.outPath;
+            in
+            pkgs.lib.mkIf (rootFileContent != "") rootFileContent;
+        in
+        {
+          devenv.root = rootdirOpt;
+
+          packages = with pkgs; [
+            fuse3
+            cargo-outdated
+          ];
+
+          languages = {
+            c.enable = true;
+            rust = {
+              enable = true;
+              channel = "nixpkgs";
+              # HACK: This devenv module expects each component in a separate package,
+              # but rust-overlay isn't really set up that way
+              toolchain = genAttrs cfg.languages.rust.components (_: rustToolchain);
+            };
           };
-          packagesFrom = [
-            (rustPkgs.workspaceShell { })
-          ];
-          packages = [
-            inputs'.cargo2nix.packages.default
-            pkgs.cargo-outdated
-          ];
         };
       };
     };
